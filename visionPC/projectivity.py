@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Insert module description here
+Method collection for computer vision
 
 Created on Wed Sep 13 18:07:14 2017
 @author: jolumartinez
@@ -32,7 +32,7 @@ def click_and_count(event, x, y, flags, param):
 # +=================================================================================================
 class ProyectividadOpenCV():
     """
-    Esta es una clase para solucionar problemas con homografias
+    This class contains several methods for computer vision
     """
     # Atributos de la clase
     error_reproyeccion = 4
@@ -43,7 +43,7 @@ class ProyectividadOpenCV():
     
     #--------------------------------------------------------------------------    
     def coser_imagenes(self, ruta_img_base, ruta_img_adicional, radio = 0.75, error_reproyeccion = 4.0, coincidencias = False):
-        """Metodo que carga una imagen desde una ruta en disco duro"""
+        """Method for stitching two images"""
         
         imagen_adicional = ruta_img_adicional
         imagen_base = ruta_img_base
