@@ -653,199 +653,31 @@ class ProyectividadOpenCV():
     
     #------------------------------------------------------------------------------------------------
     
-    
+    def img_alignment_sequoia(self, img_RGB, img_GRE, img_base_NIR, img_RED, img_REG, width, height):
+        """This class takes the five images given by Sequoia Camera and makes a photogrammetric
+        alignment. Returns four images (GRE, NIR, RED, REG) aligned with the RGB image"""
+
+        # Makes resize to all images
+
+        b_RGB = cv2.resize(img_RGB, (width, height), interpolation=cv2.INTER_LINEAR)
+        b_GRE = cv2.resize(img_GRE, (width, height), interpolation=cv2.INTER_LINEAR)
+        base_NIR = cv2.resize(img_base_NIR, (width, height), interpolation=cv2.INTER_LINEAR)
+        b_RED = cv2.resize(img_RED, (width, height), interpolation=cv2.INTER_LINEAR)
+        b_REG = cv2.resize(img_REG, (width, height), interpolation=cv2.INTER_LINEAR)
+
+        # Makes a stabilization with NIR image like base
+
+        stb_GRE = self.estabilizador_imagen(b_GRE, base_NIR)
+        stb_RGB = self.estabilizador_imagen(b_RGB, base_NIR)
+        stb_RED = self.estabilizador_imagen(b_RED, base_NIR)
+        stb_REG = self.estabilizador_imagen(b_REG, base_NIR)
+
+        return stb_RGB, stb_GRE, base_NIR, stb_RED, stb_REG    
     
 #===========================================================================        
 def main():
-    """Funcion principal
-       Solo se debe ejecutar si se ejecuta el programa de forma individual
-       Pero no se debe ejecutar si se carga como modulo dentro de otro programa
-    """
-
-    a=80
-    b=-100
-    #Coordenadas de busqueda las marcas
-    marcas_cad_mm = ([[150,-50],[310,-50],[130,0],[330,0],[170,50],[290,50],[100,100],[360,100],[250,145],[435,145],[80,220],[380,220],[170,250],[290,250],[80,280],[380,280],[130,330],[300,330],[230,318.4]])
-    marcas_cad_mm_1 = ([[150+a,650+b],[130+a,600+b],[330+a,600+b],[170+a,550+b],[290+a,550+b],[100+a,500+b],[360+a,500+b],[80+a,380+b],[380+a,380+b],[170+a,350+b],[80+a,320+b],[380+a,320+b],[130+a,270+b],[230+a,281.6+b]])
-    marcas_cad_mm_neg = ([[0,0],[150,50],[310,50],[130,0],[330,0],[170,-50],[290,-50],[100,-100],[360,-100],[25,-145],[435,-145],[80,-220],[380,-220],[170,-250],[290,-250],[80,-280],[380,-280],[130,-330],[300,-330],[230,-318.4]])
-    marcas_click = ([[248,428],[359,431],[238,389],[378,392],[276,354],[340,355],[223,322],[396,323],[176,288],[426,291],[200,234],[412,246],[282,219],[342,224],[203,189],[417,198],[244,180],[381,184],[311,173]])
-    centroides_marcas = ([[247,426],[237,388],[376,390],[276,353],[339,354],[222,320.5],[395,322],[199,233],[411,245],[280.5,218],[202,188],[416,197],[242,179],[310,172]])
-    
-    referencia_marca_17_medido=[201,195]
-    referencia_marca_17_cad=[130,330]
-    nuevo_cero = [71,525]
-    
-    #Se utiliza esta linea si se desea probar e manipulador con un video precargado
-#    cap = cv2.VideoCapture('videoFinalM.wmv')
-    
-    #Se utiliza esta linea si se desea probar directamente con la camara. Hay que especificar el numero de la camara en el sistema
-    cap = cv2.VideoCapture(0)
-    
-    #Se captura el valor de la tasa de adquisicion del video para alimentar Kalman. Solo para video
-#    fps = cap.get(cv2.CAP_PROP_FPS)
-    
-    #Se especifica la tasa de captura para Kalman. ¿Como se hace?
-#    fps = 30
-    
-    # si no se conce la ubicacion de las marcas, se pueden indicar con la siguiente linea
-    #marcas_click = prm.inicializar_marcas(img_base)
-    
-    #Se crea el objeto e la clase proyectividad
-    estabilizador = ProyectividadOpenCV()
-    
-    #Se carga una imagen base para hallar la homografia de esta contra el CAD y asi utilizarla como base
-    img_for_mm = cv2.imread("img_base.png")
-    
-    #Este metodo halla la homografia contra el cad desde una serie de puntos correspondientes a los centros estimados. El se encarga de buscar los centroides
-    #img_base = estabilizador.estabilizar_desde_marcas(img_for_mm,marcas_click,marcas_cad_mm_1)
-      
-    #Este metodo halla la homografia contra el cad desde una serie de puntos correspondientes a los centroides de las marcas
-    img_base = estabilizador.estabilizar_desde_centroides_marcas(img_for_mm,centroides_marcas,marcas_cad_mm_1)
-    
-    #Se crea una variable delta de t para kalman
-    delta_t = 0.1
-    
-    #Se mide el tiempo que pasa entre la captura de un frame y otro
-    tiempo_inicial = time()
-    
-    #Se inicializa Kalman
-    cx, cy = 200, 200    
-    kalman = cv2.KalmanFilter(4,2)    
-    kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)    
-    kalman.transitionMatrix = np.array([[1,0,delta_t,0],[0,1,0,delta_t],[0,0,1,0],[0,0,0,1]],np.float32)    
-    kalman.processNoiseCov = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32) * 0.01    
-    kalman.measurementNoiseCov = np.array([[1,0],[0,1]],np.float32) * 0.0001
-    tp = [23,13]
-    
-    #Se abre el puerto serial y se deja abierto para una comunicacion constante
-    ser = estabilizador.abrir_puerto_serial(puerto='COM6')#Hay que verificar el puerto
-    if ser.isOpen():
-        estabilizador.inicializar_servos(ser)
-    
-#    ser = serial.Serial(
-#    port='COM5',
-#    baudrate=921600,
-#    parity=serial.PARITY_EVEN,
-#    rtscts=1,
-#    timeout=0
-##    stopbits=1,
-##    bytesize=8
-#    )
-    tiempo_inicial = 0
-    tiempo_final = 0.1
-    while(True):
-        tiempo_final = time()
-        delta_t = tiempo_final-tiempo_inicial
-        tiempo_inicial = tiempo_final
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-        
-        print(delta_t)
-        
-        #Esta clase estabiliza automaticamente la imagen con base una imagen inicial
-        estabilizada = estabilizador.estabilizador_imagen(frame,img_base)
-        
-        #Se aplica un ruido gausiano para suavizar bordes
-        blur = cv2.blur(estabilizada, (3,3))
-        #Se hace la transformacion a HSV
-        hsv = cv2.cvtColor(blur,cv2.COLOR_BGR2HSV)
-        #Se aplica la mascara de color que solo deja pasar rojos. Video
-#        thresh_objeto = cv2.inRange(hsv,np.array((0,50,50)), np.array((10,255,255)))
-        
-#        Se aplica la mascara de color que solo deja pasar rojos. Camara
-        thresh_objeto = cv2.inRange(hsv,np.array((160,100,100)), np.array((179,255,255)))
-        
-        # se buscan los contornos en la imagen filtada para rojos
-        image, contours,hierarchy = cv2.findContours(thresh_objeto,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
-        
-        #Se inicializa la variable para contar los frames en los que se pierde el objeto para alimentar Kalman
-        cont_frame = 1
-    
-        # Se hace la busqueda del objeto y se filtra por area para determinar que sea el adecuado
-        max_area = 550
-        best_cnt = 1
-        for cnt in contours:
-            area = 1
-            area = cv2.contourArea(cnt)
-    #        print(area)
-            if area > max_area and area < 750:
-                max_area = area
-                best_cnt = cnt
-                # Si seencuentra un area que cumpla, entonces, se halla el centroide de esta
-                M = cv2.moments(best_cnt)
-                cx,cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
-                
-                #Se dibuja una cruz verde sobre el objeto encontrado
-                cv2.line(blur,(cx-10,cy),(cx+10,cy),(0,255,0),1)
-                cv2.line(blur,(cx,cy-10),(cx,cy+10),(0,255,0),1)
-                
-                # Se hace la conversion del formato para alimentar Kalman con el centroide
-                mp = np.array([[np.float32(cx)],[np.float32(cy)]])
-                tp = kalman.predict()
-                kalman.correct(mp)
-                
-                #Como el objeto fue encontrado, entonces, se deja en 1 el conteo de frames
-                cont_frame = 1
-            
-            # Si no seencuentra el objeto, se hace la estimacion de Kalman y no se actualiza la medida
-            if area <= max_area or area >= 750: 
-                kalman.transitionMatrix = np.array([[1,0,cont_frame*delta_t,0],[0,1,0,cont_frame*delta_t],[0,0,1,0],[0,0,0,1]],np.float32)
-                
-                #Se hace el conteo de los frames en los que no se encuentra la marca para alimentar Kalman
-                cont_frame = cont_frame + 1
-                
-                #Sedibuja una cruz azul en la posicion estimada del objeto
-                tp = kalman.predict()
-                cv2.line(blur,(tp[0]-10,tp[1]),(tp[0]+10,tp[1]),(255,0,0),1)
-                cv2.line(blur,(tp[0],tp[1]-10),(tp[0],tp[1]+10),(255,0,0),1)
-                
-     
-        # Se halla la varianza de la estimacion para reducir la zona de busqueda en el siguiente frame
-        varianza_x = kalman.errorCovPost[0,0]
-        varianza_y = kalman.errorCovPost[1,1]
-        devstd_x = varianza_x**0.5
-        devstd_y = varianza_y**0.5
-      
-        #para 6 desviaciones estandar
-        marco_x=devstd_x*6
-        marco_y=devstd_y*6
-        
-        # Se dibuja un circulo blanco que crece con la varianza a razon de 6 desviaciones estandar
-        cv2.circle(blur, (int(tp[0][0]),int(tp[1][0])), int(marco_x), (255,255,255),1, cv2.LINE_AA)
-#        print(tp)
-        
-        #Se obtienen las coordenadas en centimetros para la cinematicainversa
-        cor_x=10+(tp[0][0]-nuevo_cero[0])/10
-        cor_y=(nuevo_cero[1]-tp[1][0])/10
-#        print(cor_x,cor_y)
-        if cor_x <= 14 or cor_x >= 34:
-            cor_x = 23
-        if cor_y <= 4 or cor_y >= 26:
-            cor_y = 13.28
-            
-        
-#        print(cor_x,cor_y)
-        #Se utiliza la cinematica inversa para obtener el valr de los angulos en decimal de 0 a 4096
-        b1, b2, b3 = estabilizador.cinematica_inversa(cor_x,cor_y)
-##        print(tp[0]/10,tp[1]/10)
-#        print(angulos_decimales)
-        
-        if ser.isOpen():
-            mensaje_status = estabilizador.enviar_tethas_servomotores(ser,b1, b2, b3)
-        
-#        print(mensaje_status)
-        #Visualizacion de imagenes
-        cv2.imshow('Umbral',blur)
-        cv2.imshow('Mask',thresh_objeto)
-    #    cv2.imshow('Marcas',thresh_marcas)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        
-        
-    ser.close()
-    cap.release()
-    cv2.destroyAllWindows()
-    
+    """Computer Vision Class"""
+    print("Computer Vision Class by Jorge Martinez")
 
 #===========================================================================
 if __name__ == '__main__':
