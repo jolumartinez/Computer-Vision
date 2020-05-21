@@ -3,7 +3,7 @@ This folder contains all my developments about computer vision. (Este repositori
 
 #English (Español)
 
-La clase antigua, sobre la que se desarrollaron los primeros tutoriales, puede ser descargada del siguiente enlace:
+La clase antigua, sobre la que se desarrollaron los primeros tutoriales, puede ser descargada del siguiente enlace: https://drive.google.com/file/d/1Qz1WPXwXFggIiZsLkuU9ffxJ2WIGMqOi/view?usp=sharing
 
 Esta nueva clase, propone ser más compacta e intuitiva. Es cuestión de hacerle caso a los mensajes que aparecen en consola.
 
